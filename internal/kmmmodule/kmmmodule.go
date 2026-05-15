@@ -99,7 +99,11 @@ var (
 // Tag format: sles-<codestream>-<ga_kernel>-<driver_version>
 var slesCSDPrebuiltDriverImages = map[string]map[string]string{
 	"15.7": {
-		"7.0.3": "registry.suse.com/third-party/amd/amdgpu-driver:sles-15.7-7.0.3",
+		"7.0.3":   "registry.suse.com/third-party/amd/amdgpu-driver:sles-15.7-7.0.3",
+		"31.20":   "registry.opensuse.org/home/pushman/bci/staging/sle-15-sp7/7-3824/containerfile/third-party/amd/amdgpu-driver:sles-15.7-6.4.0-150700.51-default-31.20",
+		"31.10":   "registry.opensuse.org/home/pushman/bci/staging/sle-15-sp7/7-3824/containerfile/third-party/amd/amdgpu-driver:sles-15.7-6.4.0-150700.51-default-31.10",
+		"30.30.3": "registry.opensuse.org/home/pushman/bci/staging/sle-15-sp7/7-3824/containerfile/third-party/amd/amdgpu-driver:sles-15.7-6.4.0-150700.51-default-30.30.3",
+		"30.20.1": "registry.opensuse.org/home/pushman/bci/staging/sle-15-sp7/7-3824/containerfile/third-party/amd/amdgpu-driver:sles-15.7-6.4.0-150700.51-default-30.20.1",
 	},
 }
 

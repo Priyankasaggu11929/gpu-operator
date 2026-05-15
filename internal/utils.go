@@ -236,13 +236,17 @@ func UbuntuDefaultDriverVersionsMapper(fullImageStr string) (string, error) {
 
 var slesSPRegexp = regexp.MustCompile(`15\s*-?\s*sp(\d+)`)
 
+// SLESLatestDriverVersion is the default driver version used for SLES SP7+.
+// Update this variable when a new driver release becomes the recommended default.
+var SLESLatestDriverVersion = "31.20"
+
 func SLESDefaultDriverVersionsMapper(fullImageStr string) (string, error) {
 	if strings.Contains(fullImageStr, "15") {
 		match := slesSPRegexp.FindStringSubmatch(strings.ToLower(fullImageStr))
 		if len(match) > 1 {
 			spVersion, err := strconv.Atoi(match[1])
 			if err == nil && spVersion >= 7 {
-				return "7.0.3", nil // Latest stable version for SP7+
+				return SLESLatestDriverVersion, nil
 			}
 		}
 	}
