@@ -105,6 +105,10 @@ var slesCSDPrebuiltDriverImages = map[string]map[string]string{
 		"30.30.3": "registry.opensuse.org/home/pushman/bci/staging/sle-15-sp7/7-3824/containerfile/third-party/amd/amdgpu-driver:sles-15.7-6.4.0-150700.51-default-30.30.3",
 		"30.20.1": "registry.opensuse.org/home/pushman/bci/staging/sle-15-sp7/7-3824/containerfile/third-party/amd/amdgpu-driver:sles-15.7-6.4.0-150700.51-default-30.20.1",
 	},
+	"16.0": {
+		"31.20": "registry.opensuse.org/home/pushman/bci/staging/16.0/16.0-3824/containerfile/third-party/amd/amdgpu-driver:sles-16.0-6.12.0-160000.5-default-31.20",
+		"31.10": "registry.opensuse.org/home/pushman/bci/staging/16.0/16.0-3824/containerfile/third-party/amd/amdgpu-driver:sles-16.0-6.12.0-160000.5-default-31.10",
+	},
 }
 
 //go:generate mockgen -source=kmmmodule.go -package=kmmmodule -destination=mock_kmmmodule.go KMMModuleAPI
@@ -701,13 +705,21 @@ func ubuntuCMNameMapper(osImageStr string) string {
 func slesCMNameMapper(osImageStr string) string {
 	// Example: "SUSE Linux Enterprise Server 15 SP7" -> "sles-15.7"
 	// Example: "suse linux enterprise server 15-sp7" -> "sles-15.7"
-	// Convert to lowercase for consistent matching
+	// Example: "SUSE Linux Enterprise Server 16.0" -> "sles-16.0"
 	osImageLower := strings.ToLower(osImageStr)
-	re := regexp.MustCompile(`(\d+)\s*-?\s*sp(\d+)`)
-	matches := re.FindStringSubmatch(osImageLower)
-	if len(matches) >= 3 {
+
+	// SP-style notation (e.g. "15 SP7" or "15-sp7")
+	reSP := regexp.MustCompile(`(\d+)\s*-?\s*sp(\d+)`)
+	if matches := reSP.FindStringSubmatch(osImageLower); len(matches) >= 3 {
 		return fmt.Sprintf("sles-%s.%s", matches[1], matches[2])
 	}
+
+	// major.minor notation (e.g. "16.0")
+	reMajorMinor := regexp.MustCompile(`(\d+)\.(\d+)`)
+	if matches := reMajorMinor.FindStringSubmatch(osImageLower); len(matches) >= 3 {
+		return fmt.Sprintf("sles-%s.%s", matches[1], matches[2])
+	}
+
 	return "sles-" + osImageLower
 }
 

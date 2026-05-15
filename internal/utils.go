@@ -234,23 +234,37 @@ func UbuntuDefaultDriverVersionsMapper(fullImageStr string) (string, error) {
 	return "", fmt.Errorf("unsupported Ubuntu version: %s. Supported versions include 20.04, 22.04 and 24.04", fullImageStr)
 }
 
-var slesSPRegexp = regexp.MustCompile(`15\s*-?\s*sp(\d+)`)
+var slesSPRegexp = regexp.MustCompile(`(\d+)\s*-?\s*sp(\d+)`)
+var slesMajorMinorRegexp = regexp.MustCompile(`(\d+)\.(\d+)`)
 
-// SLESLatestDriverVersion is the default driver version used for SLES SP7+.
-// Update this variable when a new driver release becomes the recommended default.
-var SLESLatestDriverVersion = "31.20"
+// slesDefaultDriverVersions maps SLES codestream version to its default (latest) driver version.
+var slesDefaultDriverVersions = map[string]string{
+	"15.7": "31.20",
+	"16.0": "31.20",
+}
+
+// supportedSLESVersions lists the SLES versions supported by this operator,
+// matching the PRETTY_NAME values from /etc/os-release on those hosts.
+var supportedSLESVersions = []string{"SLES 15 SP7", "SLES 16.0"}
 
 func SLESDefaultDriverVersionsMapper(fullImageStr string) (string, error) {
-	if strings.Contains(fullImageStr, "15") {
-		match := slesSPRegexp.FindStringSubmatch(strings.ToLower(fullImageStr))
-		if len(match) > 1 {
-			spVersion, err := strconv.Atoi(match[1])
-			if err == nil && spVersion >= 7 {
-				return SLESLatestDriverVersion, nil
-			}
+	lower := strings.ToLower(fullImageStr)
+	var csVersion string
+
+	// SP-style notation used by SLES 15 (e.g. "15 SP7" or "15-sp7")
+	if match := slesSPRegexp.FindStringSubmatch(lower); len(match) >= 3 {
+		csVersion = fmt.Sprintf("%s.%s", match[1], match[2])
+	} else if match := slesMajorMinorRegexp.FindStringSubmatch(lower); len(match) >= 3 {
+		// major.minor notation used by SLES 16+ (e.g. "16.0")
+		csVersion = fmt.Sprintf("%s.%s", match[1], match[2])
+	}
+
+	if csVersion != "" {
+		if v, ok := slesDefaultDriverVersions[csVersion]; ok {
+			return v, nil
 		}
 	}
-	return "", fmt.Errorf("unsupported SLES version: %s. Supported versions include SLES 15 SP7 and above", fullImageStr)
+	return "", fmt.Errorf("unsupported SLES version: %s. Supported versions: %s", fullImageStr, strings.Join(supportedSLESVersions, ", "))
 }
 
 func HasNodeLabelKey(node v1.Node, labelKey string) bool {
