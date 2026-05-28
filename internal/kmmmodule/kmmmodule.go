@@ -101,6 +101,7 @@ const slesPrebuiltDriverImageRepo = "registry.suse.com/third-party/amd/amdgpu-dr
 // Tag format: sles-<codestream>-<ga_kernel>-default-<driver_version>
 var slesCSDGAKernel = map[string]string{
 	"15.7": "6.4.0-150700.51",
+	"16.0": "6.12.0-160000.5",
 }
 
 // slesCSDDriverVersions maps SLES codestream -> supported prebuilt driver versions.
@@ -108,6 +109,7 @@ var slesCSDGAKernel = map[string]string{
 // To add a new codestream: add entries to both slesCSDGAKernel and slesCSDDriverVersions.
 var slesCSDDriverVersions = map[string][]string{
 	"15.7": {"7.0.3", "30.20.1", "30.30.3", "31.10", "31.20", "31.30"},
+	"16.0": {"31.10", "31.20", "31.30"},
 }
 
 // slesPrebuiltDriverImage returns the full prebuilt image reference.
@@ -719,11 +721,18 @@ func ubuntuCMNameMapper(osImageStr string) string {
 func slesCMNameMapper(osImageStr string) string {
 	// Example: "SUSE Linux Enterprise Server 15 SP7" -> "sles-15.7"
 	// Example: "suse linux enterprise server 15-sp7" -> "sles-15.7"
+	// Example: "SUSE Linux Enterprise Server 16.0" -> "sles-16.0"
 	osImageLower := strings.ToLower(osImageStr)
 
 	// SP-style notation (e.g. "15 SP7" or "15-sp7")
 	reSP := regexp.MustCompile(`(\d+)\s*-?\s*sp(\d+)`)
 	if matches := reSP.FindStringSubmatch(osImageLower); len(matches) >= 3 {
+		return fmt.Sprintf("sles-%s.%s", matches[1], matches[2])
+	}
+
+	// major.minor notation (e.g. "16.0")
+	reMajorMinor := regexp.MustCompile(`(\d+)\.(\d+)`)
+	if matches := reMajorMinor.FindStringSubmatch(osImageLower); len(matches) >= 3 {
 		return fmt.Sprintf("sles-%s.%s", matches[1], matches[2])
 	}
 
