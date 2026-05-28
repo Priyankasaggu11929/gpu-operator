@@ -107,7 +107,7 @@ var slesCSDGAKernel = map[string]string{
 // To add a new version: append to the relevant slice.
 // To add a new codestream: add entries to both slesCSDGAKernel and slesCSDDriverVersions.
 var slesCSDDriverVersions = map[string][]string{
-	"15.7": {"7.0.3"},
+	"15.7": {"7.0.3", "30.20.1", "30.30.3", "31.10", "31.20", "31.30"},
 }
 
 // slesPrebuiltDriverImage returns the full prebuilt image reference.
