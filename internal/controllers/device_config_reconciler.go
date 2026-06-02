@@ -39,6 +39,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	kmmv1beta1 "github.com/rh-ecosystem-edge/kernel-module-management/api/v1beta1"
@@ -74,6 +75,7 @@ import (
 	"github.com/ROCm/gpu-operator/internal/metricsexporter"
 	"github.com/ROCm/gpu-operator/internal/nodelabeller"
 	"github.com/ROCm/gpu-operator/internal/plugin"
+	"github.com/ROCm/gpu-operator/internal/selinuxpolicy"
 	"github.com/ROCm/gpu-operator/internal/testrunner"
 	"github.com/ROCm/gpu-operator/internal/validator"
 )
@@ -109,12 +111,13 @@ func NewDeviceConfigReconciler(
 	metricsHandler metricsexporter.MetricsExporter,
 	testrunnerHandler testrunner.TestRunner,
 	configmanagerHandler configmanager.ConfigManager,
+	selinuxPolicyHandler selinuxpolicy.SELinuxPolicyAPI,
 	workerMgr workermgr.WorkerMgrAPI,
 	isOpenShift bool,
 	kmmWatchEnabled bool) *DeviceConfigReconciler {
 	upgradeMgrHandler := newUpgradeMgrHandler(client, k8sConfig, isOpenShift)
 	remediationMgrHandler := newRemediationMgrHandler(client, apiReader, k8sConfig, isOpenShift)
-	helper := newDeviceConfigReconcilerHelper(client, kmmHandler, dpHandler, nlHandler, upgradeMgrHandler, remediationMgrHandler, metricsHandler, testrunnerHandler, configmanagerHandler, workerMgr, isOpenShift, kmmWatchEnabled)
+	helper := newDeviceConfigReconcilerHelper(client, kmmHandler, dpHandler, nlHandler, upgradeMgrHandler, remediationMgrHandler, metricsHandler, testrunnerHandler, configmanagerHandler, selinuxPolicyHandler, workerMgr, isOpenShift, kmmWatchEnabled)
 	podEventHandler := watchers.NewPodEventHandler(client, workerMgr)
 	nodeEventHandler := watchers.NewNodeEventHandler(client, workerMgr)
 	daemonsetEventHandler := watchers.NewDaemonsetEventHandler(client)
@@ -302,6 +305,16 @@ func (r *DeviceConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return res, fmt.Errorf("failed to handle build ConfigMap for DeviceConfig %s: %v", req.NamespacedName, err)
 	}
 
+	logger.Info("start SELinux policy reconciliation")
+	selinuxReady, err := r.helper.handleSELinuxPolicy(ctx, devConfig, nodes)
+	if err != nil {
+		return res, fmt.Errorf("failed to handle SELinux policy for DeviceConfig %s: %v", req.NamespacedName, err)
+	}
+	if !selinuxReady {
+		logger.Info("SELinux policy not yet ready on all nodes; requeueing before loading kernel modules")
+		return ctrl.Result{RequeueAfter: 15 * time.Second}, nil
+	}
+
 	logger.Info("start module install/upgrade reconciliation")
 	res, err = r.helper.handleModuleUpgrade(ctx, devConfig, nodes, false)
 	if err != nil {
@@ -407,6 +420,7 @@ type deviceConfigReconcilerHelperAPI interface {
 	handleTestRunner(ctx context.Context, devConfig *amdv1alpha1.DeviceConfig, nodes *v1.NodeList) error
 	handleConfigManager(ctx context.Context, devConfig *amdv1alpha1.DeviceConfig) error
 	handleRemediationWorkflow(ctx context.Context, devConfig *amdv1alpha1.DeviceConfig, nodes *v1.NodeList, delete bool) (ctrl.Result, error)
+	handleSELinuxPolicy(ctx context.Context, devConfig *amdv1alpha1.DeviceConfig, nodes *v1.NodeList) (bool, error)
 	setCondition(ctx context.Context, condition string, devConfig *amdv1alpha1.DeviceConfig, status metav1.ConditionStatus, reason string, message string) error
 	deleteCondition(ctx context.Context, condition string, devConfig *amdv1alpha1.DeviceConfig) error
 	validateDeviceConfig(ctx context.Context, devConfig *amdv1alpha1.DeviceConfig) []string
@@ -425,6 +439,7 @@ type deviceConfigReconcilerHelper struct {
 	testrunnerHandler   testrunner.TestRunner
 
 	configmanagerHandler  configmanager.ConfigManager
+	selinuxPolicyHandler  selinuxpolicy.SELinuxPolicyAPI
 	nodeAssignments       map[string]string
 	conditionUpdater      conditions.ConditionUpdater
 	validator             validator.ValidatorAPI
@@ -443,6 +458,7 @@ func newDeviceConfigReconcilerHelper(client client.Client,
 	metricsHandler metricsexporter.MetricsExporter,
 	testrunnerHandler testrunner.TestRunner,
 	configmanagerHandler configmanager.ConfigManager,
+	selinuxPolicyHandler selinuxpolicy.SELinuxPolicyAPI,
 	workerMgr workermgr.WorkerMgrAPI,
 	isOpenShift bool,
 	kmmWatchEnabled bool) deviceConfigReconcilerHelperAPI {
@@ -458,6 +474,7 @@ func newDeviceConfigReconcilerHelper(client client.Client,
 		metricsHandler:        metricsHandler,
 		testrunnerHandler:     testrunnerHandler,
 		configmanagerHandler:  configmanagerHandler,
+		selinuxPolicyHandler:  selinuxPolicyHandler,
 		nodeAssignments:       make(map[string]string),
 		conditionUpdater:      conditionUpdater,
 		validator:             validator,
@@ -959,6 +976,11 @@ func (dcrh *deviceConfigReconcilerHelper) finalizeDeviceConfig(ctx context.Conte
 		if err := dcrh.client.Delete(ctx, &draDS); err != nil {
 			return fmt.Errorf("failed to delete dra-driver daemonset %s: %v", namespacedName, err)
 		}
+	}
+
+	// finalize SELinux policy installer DaemonSet
+	if err := dcrh.finalizeSelinuxPolicy(ctx, devConfig); err != nil {
+		return err
 	}
 
 	// finalize node labeller
@@ -1578,6 +1600,83 @@ func (dcrh *deviceConfigReconcilerHelper) handleConfigManager(ctx context.Contex
 	}
 	logger.Info("Reconciled config manager", "namespace", ds.Namespace, "name", ds.Name, "result", opRes)
 
+	return nil
+}
+
+// hasSLES16Nodes returns true if any node in nodes is running SLES 16.x,
+// which requires the custom kmm-amdgpu-load SELinux policy to be installed.
+func hasSLES16Nodes(nodes *v1.NodeList, devConfig *amdv1alpha1.DeviceConfig) bool {
+	for _, node := range nodes.Items {
+		osName, err := kmmmodule.GetOSName(node, devConfig)
+		if err == nil && strings.HasPrefix(osName, "sles-16") {
+			return true
+		}
+	}
+	return false
+}
+
+// handleSELinuxPolicy creates (or deletes) the SELinux policy installer DaemonSet.
+// The DaemonSet is only deployed on clusters that have SLES 16.x GPU nodes, because
+// SLES 16.0's container-selinux policy is missing the
+// "allow spc_t container_var_lib_t:system module_load" rule that KMM needs.
+//
+// Returns (true, nil) when the policy is installed and ready on all targeted nodes,
+// (false, nil) when the DaemonSet exists but pods have not all become Ready yet
+// (caller should requeue), and (false, err) on error.
+func (dcrh *deviceConfigReconcilerHelper) handleSELinuxPolicy(ctx context.Context, devConfig *amdv1alpha1.DeviceConfig, nodes *v1.NodeList) (bool, error) {
+	logger := log.FromContext(ctx)
+
+	if !hasSLES16Nodes(nodes, devConfig) {
+		// No SLES 16 nodes — clean up any pre-existing installer DaemonSet in
+		// case the cluster was previously heterogeneous.
+		return true, dcrh.finalizeSelinuxPolicy(ctx, devConfig)
+	}
+
+	ds := &appsv1.DaemonSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: devConfig.Namespace,
+			Name:      devConfig.Name + utils.SELinuxPolicyNameSuffix,
+		},
+	}
+	opRes, err := controllerutil.CreateOrPatch(ctx, dcrh.client, ds, func() error {
+		return dcrh.selinuxPolicyHandler.SetSELinuxPolicyInstallerAsDesired(ds, devConfig)
+	})
+	if err != nil {
+		return false, fmt.Errorf("reconciling SELinux policy installer DaemonSet: %w", err)
+	}
+	logger.Info("Reconciled SELinux policy installer", "namespace", ds.Namespace, "name", ds.Name, "result", opRes)
+
+	// Wait for all targeted nodes to have a Ready pod, meaning the init container
+	// has run to completion and the SELinux module has been installed on every node.
+	desired := ds.Status.DesiredNumberScheduled
+	ready := ds.Status.NumberReady
+	if desired == 0 || ready < desired {
+		logger.Info("SELinux policy installer not yet ready",
+			"desiredNodes", desired, "readyNodes", ready)
+		return false, nil
+	}
+	return true, nil
+}
+
+// finalizeSelinuxPolicy deletes the SELinux policy installer DaemonSet if it exists.
+func (dcrh *deviceConfigReconcilerHelper) finalizeSelinuxPolicy(ctx context.Context, devConfig *amdv1alpha1.DeviceConfig) error {
+	logger := log.FromContext(ctx)
+
+	ds := appsv1.DaemonSet{}
+	dsName := types.NamespacedName{
+		Namespace: devConfig.Namespace,
+		Name:      devConfig.Name + utils.SELinuxPolicyNameSuffix,
+	}
+	if err := dcrh.client.Get(ctx, dsName, &ds); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("failed to get SELinux policy installer DaemonSet %s: %w", dsName, err)
+		}
+		return nil
+	}
+	logger.Info("deleting SELinux policy installer DaemonSet", "daemonset", dsName)
+	if err := dcrh.client.Delete(ctx, &ds); err != nil {
+		return fmt.Errorf("failed to delete SELinux policy installer DaemonSet %s: %w", dsName, err)
+	}
 	return nil
 }
 

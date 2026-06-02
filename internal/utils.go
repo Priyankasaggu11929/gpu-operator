@@ -73,6 +73,7 @@ const (
 	DevicePluginNameSuffix    = "-device-plugin"
 	DRADriverNameSuffix       = "-dra-driver"
 	NodeLabellerNameSuffix    = "-node-labeller"
+	SELinuxPolicyNameSuffix   = "-selinux-policy"
 )
 
 var (

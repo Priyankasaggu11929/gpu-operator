@@ -204,6 +204,21 @@ func (mr *MockdeviceConfigReconcilerHelperAPIMockRecorder) handleConfigManager(c
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "handleConfigManager", reflect.TypeOf((*MockdeviceConfigReconcilerHelperAPI)(nil).handleConfigManager), ctx, devConfig)
 }
 
+// handleSELinuxPolicy mocks base method.
+func (m *MockdeviceConfigReconcilerHelperAPI) handleSELinuxPolicy(ctx context.Context, devConfig *v1alpha1.DeviceConfig, nodes *v1.NodeList) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "handleSELinuxPolicy", ctx, devConfig, nodes)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// handleSELinuxPolicy indicates an expected call of handleSELinuxPolicy.
+func (mr *MockdeviceConfigReconcilerHelperAPIMockRecorder) handleSELinuxPolicy(ctx, devConfig, nodes any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "handleSELinuxPolicy", reflect.TypeOf((*MockdeviceConfigReconcilerHelperAPI)(nil).handleSELinuxPolicy), ctx, devConfig, nodes)
+}
+
 // handleDRADriver mocks base method.
 func (m *MockdeviceConfigReconcilerHelperAPI) handleDRADriver(ctx context.Context, devConfig *v1alpha1.DeviceConfig, nodes *v1.NodeList) error {
 	m.ctrl.T.Helper()

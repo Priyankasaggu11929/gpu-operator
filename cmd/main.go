@@ -61,6 +61,7 @@ import (
 	"github.com/ROCm/gpu-operator/internal/metricsexporter"
 	"github.com/ROCm/gpu-operator/internal/nodelabeller"
 	"github.com/ROCm/gpu-operator/internal/plugin"
+	"github.com/ROCm/gpu-operator/internal/selinuxpolicy"
 	"github.com/ROCm/gpu-operator/internal/testrunner"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -142,6 +143,7 @@ func main() {
 	metricsHandler := metricsexporter.NewMetricsExporter(scheme)
 	testrunnerHandler := testrunner.NewTestRunner(scheme)
 	configmanagerHandler := configmanager.NewConfigManager(scheme)
+	selinuxPolicyHandler := selinuxpolicy.NewSELinuxPolicyInstaller(scheme)
 	workerMgr := workermgr.NewWorkerMgr(client, scheme)
 	dcr := controllers.NewDeviceConfigReconciler(
 		mgr.GetConfig(),
@@ -153,6 +155,7 @@ func main() {
 		metricsHandler,
 		testrunnerHandler,
 		configmanagerHandler,
+		selinuxPolicyHandler,
 		workerMgr,
 		isOpenShift,
 		kmmWatchEnabled)

@@ -197,7 +197,7 @@ var _ = Describe("getLabelsPerModules", func() {
 	BeforeEach(func() {
 		ctrl := gomock.NewController(GinkgoT())
 		kubeClient = mock_client.NewMockClient(ctrl)
-		dcrh = newDeviceConfigReconcilerHelper(kubeClient, nil, nil, nil, nil, nil, nil, nil, nil, nil, false, true)
+		dcrh = newDeviceConfigReconcilerHelper(kubeClient, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, false, true)
 	})
 
 	ctx := context.Background()
@@ -241,7 +241,7 @@ var _ = Describe("deviceConfigReconcilerHelper with KMM watch disabled", func() 
 	BeforeEach(func() {
 		ctrl := gomock.NewController(GinkgoT())
 		kubeClient = mock_client.NewMockClient(ctrl)
-		dcrh = newDeviceConfigReconcilerHelper(kubeClient, nil, nil, nil, nil, nil, nil, nil, nil, nil, false, true)
+		dcrh = newDeviceConfigReconcilerHelper(kubeClient, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, false, true)
 	})
 	ctx := context.Background()
 	nn := types.NamespacedName{
@@ -282,7 +282,7 @@ var _ = Describe("setFinalizer", func() {
 	BeforeEach(func() {
 		ctrl := gomock.NewController(GinkgoT())
 		kubeClient = mock_client.NewMockClient(ctrl)
-		dcrh = newDeviceConfigReconcilerHelper(kubeClient, nil, nil, nil, nil, nil, nil, nil, nil, nil, false, true)
+		dcrh = newDeviceConfigReconcilerHelper(kubeClient, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, false, true)
 	})
 
 	ctx := context.Background()
@@ -318,7 +318,7 @@ var _ = Describe("finalizeDeviceConfig", func() {
 	BeforeEach(func() {
 		ctrl := gomock.NewController(GinkgoT())
 		kubeClient = mock_client.NewMockClient(ctrl)
-		dcrh = newDeviceConfigReconcilerHelper(kubeClient, nil, nil, nil, nil, nil, nil, nil, nil, nil, false, true)
+		dcrh = newDeviceConfigReconcilerHelper(kubeClient, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, false, true)
 	})
 
 	ctx := context.Background()
@@ -365,6 +365,11 @@ var _ = Describe("finalizeDeviceConfig", func() {
 		Namespace: devConfigNamespace,
 	}
 
+	selinuxPolicyNN := types.NamespacedName{
+		Name:      devConfigName + utils.SELinuxPolicyNameSuffix,
+		Namespace: devConfigNamespace,
+	}
+
 	nn := types.NamespacedName{
 		Name:      devConfigName,
 		Namespace: devConfigNamespace,
@@ -383,6 +388,7 @@ var _ = Describe("finalizeDeviceConfig", func() {
 
 		kubeClient.EXPECT().Get(ctx, devPluginNN, gomock.Any()).Return(statusErr).Times(1)
 		kubeClient.EXPECT().Get(ctx, draDriverNN, gomock.Any()).Return(statusErr).Times(1)
+		kubeClient.EXPECT().Get(ctx, selinuxPolicyNN, gomock.Any()).Return(statusErr).Times(1)
 		kubeClient.EXPECT().Get(ctx, configmanagerNN, gomock.Any()).Return(statusErr).Times(1)
 		kubeClient.EXPECT().Get(ctx, testrunnerNN, gomock.Any()).Return(statusErr).Times(1)
 		kubeClient.EXPECT().Get(ctx, testNodeNN, gomock.Any()).Return(nil).Times(1)
@@ -428,6 +434,7 @@ var _ = Describe("finalizeDeviceConfig", func() {
 			kubeClient.EXPECT().Get(ctx, metricsNN, gomock.Any()).Return(statusErr).Times(4),
 			kubeClient.EXPECT().Get(ctx, devPluginNN, gomock.Any()).Return(statusErr).Times(1),
 			kubeClient.EXPECT().Get(ctx, draDriverNN, gomock.Any()).Return(statusErr).Times(1),
+			kubeClient.EXPECT().Get(ctx, selinuxPolicyNN, gomock.Any()).Return(statusErr).Times(1),
 			kubeClient.EXPECT().Get(ctx, nodeLabellerNN, gomock.Any()).Return(k8serrors.NewNotFound(schema.GroupResource{}, "dsName")),
 			kubeClient.EXPECT().Get(ctx, nn, gomock.Any()).Return(nil),
 			kubeClient.EXPECT().Delete(ctx, gomock.Any()).Return(nil),
@@ -452,6 +459,7 @@ var _ = Describe("finalizeDeviceConfig", func() {
 			kubeClient.EXPECT().Get(ctx, metricsNN, gomock.Any()).Return(statusErr).Times(4),
 			kubeClient.EXPECT().Get(ctx, devPluginNN, gomock.Any()).Return(statusErr).Times(1),
 			kubeClient.EXPECT().Get(ctx, draDriverNN, gomock.Any()).Return(statusErr).Times(1),
+			kubeClient.EXPECT().Get(ctx, selinuxPolicyNN, gomock.Any()).Return(statusErr).Times(1),
 			kubeClient.EXPECT().Get(ctx, nodeLabellerNN, gomock.Any()).Return(k8serrors.NewNotFound(schema.GroupResource{}, "dsName")),
 			kubeClient.EXPECT().Get(ctx, nn, gomock.Any()).Return(fmt.Errorf("some error")),
 		)
@@ -478,6 +486,7 @@ var _ = Describe("finalizeDeviceConfig", func() {
 			kubeClient.EXPECT().Get(ctx, metricsNN, gomock.Any()).Return(statusErr).Times(4),
 			kubeClient.EXPECT().Get(ctx, devPluginNN, gomock.Any()).Return(statusErr).Times(1),
 			kubeClient.EXPECT().Get(ctx, draDriverNN, gomock.Any()).Return(statusErr).Times(1),
+			kubeClient.EXPECT().Get(ctx, selinuxPolicyNN, gomock.Any()).Return(statusErr).Times(1),
 			kubeClient.EXPECT().Get(ctx, nodeLabellerNN, gomock.Any()).Return(k8serrors.NewNotFound(schema.GroupResource{}, "dsName")),
 			kubeClient.EXPECT().Get(ctx, nn, gomock.Any()).Return(k8serrors.NewNotFound(schema.GroupResource{}, "moduleName")),
 			kubeClient.EXPECT().Patch(ctx, expectedDevConfig, gomock.Any()).Return(nil),
@@ -512,6 +521,7 @@ var _ = Describe("finalizeDeviceConfig", func() {
 			kubeClient.EXPECT().Get(ctx, metricsNN, gomock.Any()).Return(statusErr).Times(4),
 			kubeClient.EXPECT().Get(ctx, devPluginNN, gomock.Any()).Return(statusErr).Times(1),
 			kubeClient.EXPECT().Get(ctx, draDriverNN, gomock.Any()).Return(statusErr).Times(1),
+			kubeClient.EXPECT().Get(ctx, selinuxPolicyNN, gomock.Any()).Return(statusErr).Times(1),
 			kubeClient.EXPECT().Get(ctx, nodeLabellerNN, gomock.Any()).Return(k8serrors.NewNotFound(schema.GroupResource{}, "dsName")),
 			kubeClient.EXPECT().Get(ctx, nn, gomock.Any()).Do(
 				func(_ interface{}, _ interface{}, mod *kmmv1beta1.Module, _ ...client.GetOption) {
@@ -539,7 +549,7 @@ var _ = Describe("handleKMMModule", func() {
 		ctrl := gomock.NewController(GinkgoT())
 		kubeClient = mock_client.NewMockClient(ctrl)
 		kmmHelper = kmmmodule.NewMockKMMModuleAPI(ctrl)
-		dcrh = newDeviceConfigReconcilerHelper(kubeClient, kmmHelper, nil, nil, nil, nil, nil, nil, nil, nil, false, true)
+		dcrh = newDeviceConfigReconcilerHelper(kubeClient, kmmHelper, nil, nil, nil, nil, nil, nil, nil, nil, nil, false, true)
 	})
 
 	ctx := context.Background()
@@ -609,7 +619,7 @@ var _ = Describe("handleBuildConfigMap", func() {
 		ctrl := gomock.NewController(GinkgoT())
 		kubeClient = mock_client.NewMockClient(ctrl)
 		kmmHelper = kmmmodule.NewMockKMMModuleAPI(ctrl)
-		dcrh = newDeviceConfigReconcilerHelper(kubeClient, kmmHelper, nil, nil, nil, nil, nil, nil, nil, nil, false, true)
+		dcrh = newDeviceConfigReconcilerHelper(kubeClient, kmmHelper, nil, nil, nil, nil, nil, nil, nil, nil, nil, false, true)
 	})
 
 	ctx := context.Background()
@@ -676,7 +686,7 @@ var _ = Describe("handleNodeLabeller", func() {
 		ctrl := gomock.NewController(GinkgoT())
 		kubeClient = mock_client.NewMockClient(ctrl)
 		nodeLabellerHelper = nodelabeller.NewMockNodeLabeller(ctrl)
-		dcrh = newDeviceConfigReconcilerHelper(kubeClient, nil, nil, nodeLabellerHelper, nil, nil, nil, nil, nil, nil, false, true)
+		dcrh = newDeviceConfigReconcilerHelper(kubeClient, nil, nil, nodeLabellerHelper, nil, nil, nil, nil, nil, nil, nil, false, true)
 	})
 
 	ctx := context.Background()
@@ -762,7 +772,7 @@ var _ = Describe("buildNodeAssignments", func() {
 	BeforeEach(func() {
 		ctrl := gomock.NewController(GinkgoT())
 		kubeClient := mock_client.NewMockClient(ctrl)
-		dcrh = newDeviceConfigReconcilerHelper(kubeClient, nil, nil, nil, nil, nil, nil, nil, nil, nil, false, true)
+		dcrh = newDeviceConfigReconcilerHelper(kubeClient, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, false, true)
 	})
 
 	It("skips non-ready DeviceConfigs", func() {
@@ -849,7 +859,7 @@ var _ = Describe("handleDeviceClass", func() {
 	It("should skip when not on OpenShift", func() {
 		ctrl := gomock.NewController(GinkgoT())
 		kubeClient = mock_client.NewMockClient(ctrl)
-		dcrh = newDeviceConfigReconcilerHelper(kubeClient, nil, nil, nil, nil, nil, nil, nil, nil, nil, false, true)
+		dcrh = newDeviceConfigReconcilerHelper(kubeClient, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, false, true)
 
 		err := dcrh.handleDeviceClass(ctx, draEnabledConfig)
 		Expect(err).ToNot(HaveOccurred())
@@ -858,7 +868,7 @@ var _ = Describe("handleDeviceClass", func() {
 	It("should skip when DRA driver is not enabled", func() {
 		ctrl := gomock.NewController(GinkgoT())
 		kubeClient = mock_client.NewMockClient(ctrl)
-		dcrh = newDeviceConfigReconcilerHelper(kubeClient, nil, nil, nil, nil, nil, nil, nil, nil, nil, true, true)
+		dcrh = newDeviceConfigReconcilerHelper(kubeClient, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, true, true)
 
 		err := dcrh.handleDeviceClass(ctx, draDisabledConfig)
 		Expect(err).ToNot(HaveOccurred())
@@ -867,7 +877,7 @@ var _ = Describe("handleDeviceClass", func() {
 	It("should create DeviceClass when it does not exist", func() {
 		ctrl := gomock.NewController(GinkgoT())
 		kubeClient = mock_client.NewMockClient(ctrl)
-		dcrh = newDeviceConfigReconcilerHelper(kubeClient, nil, nil, nil, nil, nil, nil, nil, nil, nil, true, true)
+		dcrh = newDeviceConfigReconcilerHelper(kubeClient, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, true, true)
 
 		kubeClient.EXPECT().Create(ctx, gomock.Any()).Return(nil)
 
@@ -878,7 +888,7 @@ var _ = Describe("handleDeviceClass", func() {
 	It("should succeed when DeviceClass already exists", func() {
 		ctrl := gomock.NewController(GinkgoT())
 		kubeClient = mock_client.NewMockClient(ctrl)
-		dcrh = newDeviceConfigReconcilerHelper(kubeClient, nil, nil, nil, nil, nil, nil, nil, nil, nil, true, true)
+		dcrh = newDeviceConfigReconcilerHelper(kubeClient, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, true, true)
 
 		kubeClient.EXPECT().Create(ctx, gomock.Any()).Return(
 			k8serrors.NewAlreadyExists(schema.GroupResource{Group: "resource.k8s.io", Resource: "deviceclasses"}, "gpu.amd.com"),
@@ -891,7 +901,7 @@ var _ = Describe("handleDeviceClass", func() {
 	It("should return error when Create fails", func() {
 		ctrl := gomock.NewController(GinkgoT())
 		kubeClient = mock_client.NewMockClient(ctrl)
-		dcrh = newDeviceConfigReconcilerHelper(kubeClient, nil, nil, nil, nil, nil, nil, nil, nil, nil, true, true)
+		dcrh = newDeviceConfigReconcilerHelper(kubeClient, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, true, true)
 
 		kubeClient.EXPECT().Create(ctx, gomock.Any()).Return(fmt.Errorf("server error"))
 
